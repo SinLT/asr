@@ -18,17 +18,21 @@ setup_seed(42)
 
 # model_path = "wav2vec2-large-chinese-zh-cn"
 # model_path = "wav2vec2-large-xlsr-53-chinese-zh-cn"
-model_path = "wav2vec2-large-xlsr-53-chinese-zh-cn-gpt"
+# model_path = "ydshieh/wav2vec2-large-xlsr-53-chinese-zh-cn-gpt"
+# model_path = "wbbbbb/wav2vec2-large-chinese-zh-cn"
+# model_path = "jonatasgrosman/wav2vec2-large-xlsr-53-chinese-zh-cn"
+model_path = "./jonatasgrosman-1665986652"
 # model_path = "wav2vec2-large-xlsr-53-chinese-zn-cn-aishell1"
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 model = SpeechRecognitionModel(model_path=model_path, device=device)
-now = time.strftime("%Y-%m-%d-%H:%M:%S", time.localtime())
-output_dir = f'./checkpoint-{model_path}-{now}'
+now = int(time.time())
+# output_dir = f'./checkpoint-{now}'
+output_dir = f'./jonatasgrosman-{now}'
 
 # first of all, you need to define your model's token set
 # however, the token set is only needed for non-finetuned models
 # if you pass a new token set for an already finetuned model, it'll be ignored during training
-# tokens = ["a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l", "m", "n", "o", "p", "q", "r", "s", "t", "u", "v", "w", "x", "y", "z", "'"]
+# tokens = ["A", "B", "C", "D", "F", "G", "H", "I", "M", "N", "P", "R", "S", "T"]
 # token_set = TokenSet(tokens)
 
 # define your train/eval data
@@ -43,23 +47,36 @@ def read_data(dataset_name):
         train_data.append(
             {"path": path, "transcription":transcription}
         )
-read_data('Shanghai_Dialect_Conversational_Speech_Corpus')
-read_data('Shanghai_Dialect_Scripted_Speech_Corpus_Daily_Use_Sentence')
+
+def read_data2(dataset_name):
+    data = os.listdir(f'{dataset_name}/Split_TXT')
+    data_len = len(os.listdir(f'{dataset_name}/Split_TXT'))
+    print(data_len)
+    for cnt in range(1, data_len+1):
+        (filename, extension) = os.path.splitext(data[cnt - 1])
+        transcription = open(f'{dataset_name}/Split_TXT/{filename}.txt', encoding='utf-8').readline().strip()
+        path = f'{dataset_name}/Split_WAV/{filename}.wav'
+        train_data.append(
+            {"path": path, "transcription":transcription}
+        )
+# read_data('Shanghai_Dialect_Conversational_Speech_Corpus')
+# read_data('Shanghai_Dialect_Scripted_Speech_Corpus_Daily_Use_Sentence')
+read_data2('/mnt/d/AI-data/MedicalCorpus/wav2vec2')
 random.shuffle(train_data)
 eval_ratio = 0.05
 index = int(len(train_data) * eval_ratio)
 eval_data = train_data[:index]
-train_data = train_data[index:]
+# train_data = train_data[index:]
 
 # for debug
-eval_data = train_data[:10]
-train_data = train_data[10:20]
+# eval_data = train_data[:10]
+# train_data = train_data[10:20]
 
 
 print('eval_data_len:', len(eval_data))
 print('train_data_len:', len(train_data))
 
-batch_size = 32
+batch_size = 16
 eval_steps = 100
 # gradient_checkpointing=True,
 # gradient_accumulation_steps=2,
@@ -67,14 +84,13 @@ eval_steps = 100
 training_args = TrainingArguments(
     save_steps=eval_steps,
     group_by_length=True,
-    num_train_epochs=200,
+    num_train_epochs=50,
     learning_rate=1e-4,
     eval_steps=eval_steps,
     weight_decay=0.005,
     save_total_limit=2,
     per_device_train_batch_size=batch_size,
     per_device_eval_batch_size=batch_size,
-    early_stopping_patience=5,
     metric_for_best_model='cer'
 )
 model_args = ModelArguments(
@@ -87,5 +103,5 @@ model.finetune(
     train_data=train_data, 
     eval_data=eval_data, # the eval_data is optional
     training_args=training_args,
-    model_args=model_args,
+    model_args=model_args
 )
